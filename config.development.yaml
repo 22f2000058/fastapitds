@@ -1,0 +1,3 @@
+port: 8306
+debug: true
+log_level: debug
