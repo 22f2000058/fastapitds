@@ -1,21 +1,21 @@
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Request, Query
 from fastapi.middleware.cors import CORSMiddleware
 import time
 import uuid
 from pydantic import BaseModel
 import jwt
-from jwt import PyJWTError
+import statistics
 
-app = FastAPI(title="TDS JWT Verifier")
+app = FastAPI(title="TDS API - Stats + JWT Verify")
 
-# CORS (same as before)
+# ==================== CORS ====================
 ALLOWED_ORIGIN = "https://dash-u91np4.example.com"
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[ALLOWED_ORIGIN],
     allow_credentials=True,
-    allow_methods=["POST", "OPTIONS"],
+    allow_methods=["GET", "POST", "OPTIONS"],
     allow_headers=["*"],
     expose_headers=["X-Request-ID", "X-Process-Time"],
 )
@@ -32,7 +32,27 @@ async def add_custom_headers(request: Request, call_next):
     
     return response
 
-# === ASSIGNED VALUES ===
+# ==================== STATS ENDPOINT (Q1) ====================
+@app.get("/stats")
+async def get_stats(values: str = Query(...)):
+    try:
+        num_list = [int(x.strip()) for x in values.split(",") if x.strip()]
+        
+        if not num_list:
+            raise ValueError("No valid numbers")
+        
+        return {
+            "email": "22f2000058@ds.study.iitm.ac.in",
+            "count": len(num_list),
+            "sum": sum(num_list),
+            "min": min(num_list),
+            "max": max(num_list),
+            "mean": round(statistics.mean(num_list), 6)
+        }
+    except Exception:
+        return {"error": "Invalid input"}, 400
+
+# ==================== VERIFY ENDPOINT (Q2) ====================
 PUBLIC_KEY = """-----BEGIN PUBLIC KEY-----
 MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA2okOHspNjgA+2rTLbeuY
 cxiP/hG8C6Sb9iwg3yiLAA4HCnpITcbWCSelbvbYGuc3EbNy4xFyf5Cbj5DHJMID
@@ -58,11 +78,7 @@ async def verify_token(payload: TokenRequest):
             algorithms=["RS256"],
             issuer=ISSUER,
             audience=AUDIENCE,
-            options={
-                "verify_exp": True,
-                "verify_iss": True,
-                "verify_aud": True,
-            }
+            options={"verify_exp": True, "verify_iss": True, "verify_aud": True}
         )
         
         return {
@@ -71,6 +87,5 @@ async def verify_token(payload: TokenRequest):
             "sub": decoded.get("sub"),
             "aud": decoded.get("aud")
         }
-        
     except Exception:
         raise HTTPException(status_code=401, detail={"valid": False})
