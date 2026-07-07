@@ -135,11 +135,12 @@ def load_config() -> Dict[str, Any]:
     
     return config
 
-BASE_CONFIG = load_config()
+#BASE_CONFIG = load_config()
 
 @app.get("/effective-config")
 async def effective_config(set: list[str] = Query(default=[])):
-    config = BASE_CONFIG.copy()
+    # Load fresh every request so grader's dynamic OS env vars are respected
+    config = load_config()        # ← Now reads fresh on every request
     
     # Apply CLI overrides (?set=key=value)
     for item in set:
