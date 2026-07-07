@@ -95,7 +95,7 @@ async def verify_token(payload: TokenRequest):
         raise HTTPException(status_code=401, detail={"valid": False})
 
 # ==================== CONFIG ENDPOINT (Q3) ====================
-load_dotenv()  # Load .env file
+load_dotenv()  # Load .env
 
 def load_config() -> Dict[str, Any]:
     config = {
@@ -106,7 +106,7 @@ def load_config() -> Dict[str, Any]:
         "api_key": "default-secret-000"
     }
     
-    # Layer 2: config.development.yaml
+    # Layer 2: YAML
     try:
         with open("config.development.yaml", "r") as f:
             yaml_config = yaml.safe_load(f) or {}
@@ -114,7 +114,7 @@ def load_config() -> Dict[str, Any]:
     except FileNotFoundError:
         pass
     
-    # Layer 3: .env + OS env (APP_* prefix)
+    # Layer 3+4: .env + OS Env Vars (OS has higher priority)
     env_map = {
         "APP_PORT": "port",
         "NUM_WORKERS": "workers",
@@ -129,7 +129,7 @@ def load_config() -> Dict[str, Any]:
             if config_key in ["port", "workers"]:
                 config[config_key] = int(value)
             elif config_key == "debug":
-                config[config_key] = value.lower() in ["true", "1", "yes", "on"]
+                config[config_key] = str(value).lower() in ["true", "1", "yes", "on"]
             else:
                 config[config_key] = value
     
