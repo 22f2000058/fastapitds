@@ -5,8 +5,12 @@ import uuid
 from pydantic import BaseModel
 import jwt
 import statistics
+import os
+import yaml
+from dotenv import load_dotenv
+from typing import Dict, Any
 
-app = FastAPI(title="TDS API - Stats + JWT Verify")
+app = FastAPI(title="TDS API - Stats + JWT + Config")
 
 # ==================== CORS ====================
 ALLOWED_ORIGIN = "https://dash-u91np4.example.com"
@@ -37,7 +41,6 @@ async def add_custom_headers(request: Request, call_next):
 async def get_stats(values: str = Query(...)):
     try:
         num_list = [int(x.strip()) for x in values.split(",") if x.strip()]
-        
         if not num_list:
             raise ValueError("No valid numbers")
         
@@ -80,7 +83,6 @@ async def verify_token(payload: TokenRequest):
             audience=AUDIENCE,
             options={"verify_exp": True, "verify_iss": True, "verify_aud": True}
         )
-        
         return {
             "valid": True,
             "email": decoded.get("email"),
@@ -89,3 +91,70 @@ async def verify_token(payload: TokenRequest):
         }
     except Exception:
         raise HTTPException(status_code=401, detail={"valid": False})
+
+# ==================== CONFIG ENDPOINT (Q3) ====================
+load_dotenv()  # Load .env file
+
+def load_config() -> Dict[str, Any]:
+    config = {
+        "port": 8000,
+        "workers": 1,
+        "debug": False,
+        "log_level": "info",
+        "api_key": "default-secret-000"
+    }
+    
+    # Layer 2: config.development.yaml
+    try:
+        with open("config.development.yaml", "r") as f:
+            yaml_config = yaml.safe_load(f) or {}
+            config.update(yaml_config)
+    except FileNotFoundError:
+        pass
+    
+    # Layer 3: .env + OS env (APP_* prefix)
+    env_map = {
+        "APP_PORT": "port",
+        "NUM_WORKERS": "workers",
+        "APP_DEBUG": "debug",
+        "APP_LOG_LEVEL": "log_level",
+        "APP_API_KEY": "api_key"
+    }
+    
+    for env_key, config_key in env_map.items():
+        if env_key in os.environ:
+            value = os.environ[env_key]
+            if config_key in ["port", "workers"]:
+                config[config_key] = int(value)
+            elif config_key == "debug":
+                config[config_key] = value.lower() in ["true", "1", "yes", "on"]
+            else:
+                config[config_key] = value
+    
+    return config
+
+BASE_CONFIG = load_config()
+
+@app.get("/effective-config")
+async def effective_config(set: list[str] = Query(default=[])):
+    config = BASE_CONFIG.copy()
+    
+    # Apply CLI overrides (?set=key=value)
+    for item in set:
+        if "=" in item:
+            key, value = item.split("=", 1)
+            key = key.strip()
+            value = value.strip()
+            
+            if key in ["port", "workers"]:
+                config[key] = int(value)
+            elif key == "debug":
+                config[key] = value.lower() in ["true", "1", "yes", "on"]
+            else:
+                config[key] = value
+    
+    # Mask api_key
+    if "api_key" in config:
+        config["api_key"] = "****"
+    
+    return config
