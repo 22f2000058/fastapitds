@@ -95,7 +95,7 @@ async def verify_token(payload: TokenRequest):
         raise HTTPException(status_code=401, detail={"valid": False})
 
 # ==================== CONFIG ENDPOINT (Q3) ====================
-load_dotenv()  # Load .env
+load_dotenv()
 
 def load_config() -> Dict[str, Any]:
     config = {
@@ -114,7 +114,7 @@ def load_config() -> Dict[str, Any]:
     except FileNotFoundError:
         pass
     
-    # Layer 3+4: .env + OS Env Vars (OS has higher priority)
+    # Layer 3+4: .env + OS env (OS has higher priority)
     env_map = {
         "APP_PORT": "port",
         "NUM_WORKERS": "workers",
@@ -135,14 +135,13 @@ def load_config() -> Dict[str, Any]:
     
     return config
 
-#BASE_CONFIG = load_config()
 
 @app.get("/effective-config")
 async def effective_config(set: list[str] = Query(default=[])):
     # Load fresh every request so grader's dynamic OS env vars are respected
-    config = load_config()        # ← Now reads fresh on every request
+    config = load_config()
     
-    # Apply CLI overrides (?set=key=value)
+    # Apply CLI overrides (highest precedence)
     for item in set:
         if "=" in item:
             key, value = item.split("=", 1)
@@ -156,7 +155,6 @@ async def effective_config(set: list[str] = Query(default=[])):
             else:
                 config[key] = value
     
-    # Mask api_key
     if "api_key" in config:
         config["api_key"] = "****"
     
