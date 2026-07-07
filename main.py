@@ -95,7 +95,7 @@ async def verify_token(payload: TokenRequest):
         raise HTTPException(status_code=401, detail={"valid": False})
 
 # ==================== CONFIG ENDPOINT (Q3) ====================
-load_dotenv()
+load_dotenv()  # still useful for os.environ
 
 def load_config() -> Dict[str, Any]:
     config = {
@@ -106,7 +106,7 @@ def load_config() -> Dict[str, Any]:
         "api_key": "default-secret-000"
     }
     
-    # Layer 2: YAML
+    # Layer 2: config.development.yaml
     try:
         with open("config.development.yaml", "r") as f:
             yaml_config = yaml.safe_load(f) or {}
@@ -114,8 +114,30 @@ def load_config() -> Dict[str, Any]:
     except FileNotFoundError:
         pass
     
-    # Layer 3+4: .env + OS env (OS has higher priority)
-    env_map = {
+    # Layer 3: .env file (using dotenv_values for clean dict, lower precedence)
+    try:
+        env_file_values = dotenv_values(".env") or {}
+        env_map = {
+            "APP_PORT": "port",
+            "NUM_WORKERS": "workers",
+            "APP_DEBUG": "debug",
+            "APP_LOG_LEVEL": "log_level",
+            "APP_API_KEY": "api_key"
+        }
+        for env_key, config_key in env_map.items():
+            if env_key in env_file_values:
+                value = env_file_values[env_key]
+                if config_key in ["port", "workers"]:
+                    config[config_key] = int(value)
+                elif config_key == "debug":
+                    config[config_key] = str(value).lower() in ["true", "1", "yes", "on"]
+                else:
+                    config[config_key] = value
+    except Exception:
+        pass
+    
+    # Layer 4: OS environment variables (highest among env layers)
+    os_env_map = {
         "APP_PORT": "port",
         "NUM_WORKERS": "workers",
         "APP_DEBUG": "debug",
@@ -123,7 +145,7 @@ def load_config() -> Dict[str, Any]:
         "APP_API_KEY": "api_key"
     }
     
-    for env_key, config_key in env_map.items():
+    for env_key, config_key in os_env_map.items():
         if env_key in os.environ:
             value = os.environ[env_key]
             if config_key in ["port", "workers"]:
@@ -135,13 +157,12 @@ def load_config() -> Dict[str, Any]:
     
     return config
 
-
 @app.get("/effective-config")
 async def effective_config(set: list[str] = Query(default=[])):
     # Load fresh every request so grader's dynamic OS env vars are respected
     config = load_config()
     
-    # Apply CLI overrides (highest precedence)
+    # Apply CLI overrides (?set=key=value) — highest precedence
     for item in set:
         if "=" in item:
             key, value = item.split("=", 1)
@@ -155,6 +176,7 @@ async def effective_config(set: list[str] = Query(default=[])):
             else:
                 config[key] = value
     
+    # Mask api_key
     if "api_key" in config:
         config["api_key"] = "****"
     
