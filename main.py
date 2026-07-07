@@ -48,7 +48,7 @@ async def get_stats(values: str = Query(..., description="Comma-separated intege
         mean = statistics.mean(num_list)
         
         # ←←← UPDATE WITH YOUR EMAIL ←←←
-        YOUR_EMAIL = "your-university-email@domain.com"
+        YOUR_EMAIL = "22f2000058@ds.study.iitm.ac.in"
         
         return {
             "email": YOUR_EMAIL,
