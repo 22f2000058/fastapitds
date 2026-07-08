@@ -18,7 +18,7 @@ ALLOWED_ORIGIN = "https://dash-u91np4.example.com"
 # ==================== CORS (Updated for Grader) ====================
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],                    # Allow all for grader to reach it
+    allow_origins=[ALLOWED_ORIGIN],                    # Allow all for grader to reach it
     allow_credentials=True,
     allow_methods=["GET", "POST", "OPTIONS"],
     allow_headers=["*"],
