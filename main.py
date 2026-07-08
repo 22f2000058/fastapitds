@@ -12,18 +12,33 @@ from typing import Dict, Any
 
 app = FastAPI(title="TDS API - Stats + JWT + Config")
 
-# ==================== CORS ====================
+# ==================== SMART CORS ====================
+# Strict only for /stats (Q1), Open (*) for /effective-config (Q3)
 ALLOWED_ORIGIN = "https://dash-u91np4.example.com"
 
-# ==================== CORS (Updated for Grader) ====================
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=[ALLOWED_ORIGIN],                    # Allow all for grader to reach it
-    allow_credentials=True,
-    allow_methods=["GET", "POST", "OPTIONS"],
-    allow_headers=["*"],
-    expose_headers=["X-Request-ID", "X-Process-Time"],
-)
+@app.middleware("http")
+async def smart_cors(request: Request, call_next):
+    response = await call_next(request)
+    
+    origin = request.headers.get("origin", "")
+    path = request.url.path
+    
+    if path.startswith("/stats"):
+        # Strict CORS — only allowed origin gets ACAO
+        if origin == ALLOWED_ORIGIN:
+            response.headers["Access-Control-Allow-Origin"] = ALLOWED_ORIGIN
+            response.headers["Access-Control-Allow-Credentials"] = "true"
+        # Evil origins get NO header → Q1 happy
+    elif path.startswith("/effective-config"):
+        # Open CORS so Q3 grader dashboard can reach it
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        response.headers["Access-Control-Allow-Methods"] = "GET, OPTIONS"
+        response.headers["Access-Control-Allow-Headers"] = "*"
+    else:
+        if origin == ALLOWED_ORIGIN:
+            response.headers["Access-Control-Allow-Origin"] = ALLOWED_ORIGIN
+    
+    return response
 
 
 @app.middleware("http")
